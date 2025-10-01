@@ -269,6 +269,238 @@ arquivo.encaminharDados(&imprimirBytes, 64u, processados);
 
 Nos exemplos a seguir considere que `CartaoSD cartao` já foi criado, `iniciarSpi()` executado e o sistema de arquivos montado com sucesso.
 
+### Classe `CartaoSD`
+
+#### `CartaoSD(spi_inst_t* instanciaSpi, uint8_t gpioMiso, uint8_t gpioMosi, uint8_t gpioSck, uint8_t gpioCs)`
+Configura a pilha SD com os pinos utilizados.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u); // configura SPI padrão do projeto
+```
+
+#### `~CartaoSD()`
+Garante desmontagem ao destruir o objeto.
+
+```cpp
+{
+    CartaoSD cartao_temporario(spi0, 16u, 19u, 18u, 17u);
+} // destrutor desmonta o volume automaticamente
+```
+
+#### `bool iniciarSpi()`
+Prepara GPIOs e velocidade inicial do barramento e monta o volume FAT na unidade padrão.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+cartao_local.iniciarSpi();
+cartao_local.montarSistemaArquivos();
+```
+
+#### `bool desmontarSistemaArquivos()`
+Libera o volume antes de remover o cartão.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+cartao_local.iniciarSpi();
+cartao_local.montarSistemaArquivos();
+cartao_local.desmontarSistemaArquivos();
+```
+
+#### `bool existeCaminho(const char* caminho)`
+Verifica rapidamente se um arquivo ou diretório está presente.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+if (!cartao_local.existeCaminho("/config.json")) {
+    printf("Config ausente\r\n");
+}
+```
+
+#### `bool criarDiretorio(const char* caminho)`
+Cria diretório simples no volume.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+cartao_local.criarDiretorio("/logs");
+```
+
+#### `bool removerDiretorio(const char* caminho)`
+Remove diretório vazio.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+cartao_local.removerDiretorio("/logs");
+```
+
+#### `bool removerDiretorioRecursivo(const char* caminho)`
+Apaga diretório e todo o conteúdo interno.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+cartao_local.removerDiretorioRecursivo("/cache");
+```
+
+#### `bool removerArquivo(const char* caminho)`
+Exclui um arquivo simples.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+cartao_local.removerArquivo("/dados_antigos.bin");
+```
+
+#### `ArquivoSd abrir(const char* caminho, int modo)`
+Abre arquivos ou diretórios usando as flags `MODO_*`.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+ArquivoSd configuracao = cartao_local.abrir("/config.txt", MODO_LEITURA);
+```
+
+#### `bool renomear(const char* caminho_original, const char* caminho_destino)`
+Renomeia arquivos ou move para outro diretório dentro do mesmo volume.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+cartao_local.renomear("/config.txt", "/config_antiga.txt");
+```
+
+#### `bool obterInformacoes(const char* caminho, InformacoesEntradaFat &destino)`
+Consulta metadados de uma entrada conhecida.
+
+```cpp
+InformacoesEntradaFat dados_config{};
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+cartao_local.obterInformacoes("/config.txt", dados_config);
+```
+
+#### `bool alterarAtributos(const char* caminho, uint8_t atributos, uint8_t mascara)`
+Atualiza atributos FAT como somente leitura.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+cartao_local.alterarAtributos("/config.txt", AM_RDO, AM_RDO);
+```
+
+#### `bool alterarHorario(const char* caminho, const CarimboTempoFat &tempo)`
+Escreve um novo carimbo de data e hora no arquivo.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+CarimboTempoFat tempo{ .data = 0x7E4A, .hora = 0x7BC0 };
+cartao_local.alterarHorario("/config.txt", tempo);
+```
+
+#### `bool alterarDiretorioAtual(const char* caminho)`
+Define o diretório de trabalho corrente.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+cartao_local.alterarDiretorioAtual("/logs");
+```
+
+#### `bool obterDiretorioAtual(char* destino, size_t capacidade)`
+Retorna o caminho do diretório corrente.
+
+```cpp
+char atual[32];
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+cartao_local.obterDiretorioAtual(atual, sizeof(atual));
+```
+
+#### `bool obterEspacoLivre(const char* caminho, EstatisticaEspacoLivreFat &destino)`
+Consulta estatísticas de espaço do volume.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+EstatisticaEspacoLivreFat espaco{};
+cartao_local.obterEspacoLivre("/", espaco);
+```
+
+#### `bool obterRotulo(const char* caminho, char* destino_rotulo, size_t capacidade, uint32_t &numero_serie)`
+Obtém o rótulo e número de série do volume.
+
+```cpp
+char rotulo[12] = {0};
+uint32_t numero = 0;
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+cartao_local.obterRotulo("/", rotulo, sizeof(rotulo), numero);
+```
+
+#### `bool definirRotulo(const char* rotulo)`
+Define novo rótulo para a partição.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+cartao_local.definirRotulo("DADOS_SD");
+```
+
+#### `bool formatar(const char* caminho, const ParametrosFormatacaoFat &parametros, void* area_trabalho, size_t tamanho_area)`
+Executa formatação completa do volume.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+ParametrosFormatacaoFat parametros{};
+parametros.formato = FM_FAT32;
+parametros.quantidade_fats = 1u;
+parametros.tamanho_cluster_bytes = 32u * 1024u;
+BYTE area_trabalho[FF_MAX_SS * 4] = {0};
+cartao_local.formatar("0:", parametros, area_trabalho, sizeof(area_trabalho));
+```
+
+#### `bool criarParticoes(uint8_t unidade_fisica, const LBA_t tabela_particoes[], void* area_trabalho)`
+Cria partições seguindo tabela fornecida.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+LBA_t particoes[] = { 10000u, 0u };
+BYTE area_trabalho[FF_MAX_SS * 4] = {0};
+cartao_local.criarParticoes(0u, particoes, area_trabalho);
+```
+
+#### `bool definirPaginaCodigo(uint16_t codigo_pagina)`
+Seleciona página de código compatível.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+cartao_local.definirPaginaCodigo(850u);
+```
+
+#### `bool buscarPrimeiro(const char* caminho, const char* padrao, InformacoesEntradaFat &destino, ContextoBuscaFat &contexto)`
+Inicia busca por arquivos que atendam a um padrão.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+ContextoBuscaFat busca{};
+InformacoesEntradaFat primeiro{};
+cartao_local.buscarPrimeiro("/", "*.csv", primeiro, busca);
+```
+
+#### `bool buscarProximo(InformacoesEntradaFat &destino, ContextoBuscaFat &contexto)`
+Continua a busca iniciada em `buscarPrimeiro`.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+ContextoBuscaFat busca{};
+InformacoesEntradaFat item{};
+if (cartao_local.buscarPrimeiro("/", "*.csv", item, busca)) {
+    while (cartao_local.buscarProximo(item, busca)) {
+        printf("Outro arquivo CSV encontrado\r\n");
+    }
+}
+```
+
+#### `bool finalizarBusca(ContextoBuscaFat &contexto)`
+Finaliza busca liberando o contexto mantido.
+
+```cpp
+CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
+ContextoBuscaFat busca{};
+InformacoesEntradaFat item{};
+if (cartao_local.buscarPrimeiro("/", "*.csv", item, busca)) {
+    cartao_local.finalizarBusca(busca);
+}
+```
+
 ### Classe `ArquivoSd`
 
 #### `ArquivoSd()`
@@ -513,239 +745,6 @@ InformacoesEntradaFat detalhes{};
 ArquivoSd texto = cartao.abrir("/mensagem.txt", MODO_LEITURA);
 texto.obterInformacoes(detalhes);
 ```
-
-### Classe `CartaoSD`
-
-#### `CartaoSD(spi_inst_t* instanciaSpi, uint8_t gpioMiso, uint8_t gpioMosi, uint8_t gpioSck, uint8_t gpioCs)`
-Configura a pilha SD com os pinos utilizados.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u); // configura SPI padrão do projeto
-```
-
-#### `~CartaoSD()`
-Garante desmontagem ao destruir o objeto.
-
-```cpp
-{
-    CartaoSD cartao_temporario(spi0, 16u, 19u, 18u, 17u);
-} // destrutor desmonta o volume automaticamente
-```
-
-#### `bool iniciarSpi()`
-Prepara GPIOs e velocidade inicial do barramento e monta o volume FAT na unidade padrão.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-cartao_local.iniciarSpi();
-cartao_local.montarSistemaArquivos();
-```
-
-#### `bool desmontarSistemaArquivos()`
-Libera o volume antes de remover o cartão.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-cartao_local.iniciarSpi();
-cartao_local.montarSistemaArquivos();
-cartao_local.desmontarSistemaArquivos();
-```
-
-#### `bool existeCaminho(const char* caminho)`
-Verifica rapidamente se um arquivo ou diretório está presente.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-if (!cartao_local.existeCaminho("/config.json")) {
-    printf("Config ausente\r\n");
-}
-```
-
-#### `bool criarDiretorio(const char* caminho)`
-Cria diretório simples no volume.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-cartao_local.criarDiretorio("/logs");
-```
-
-#### `bool removerDiretorio(const char* caminho)`
-Remove diretório vazio.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-cartao_local.removerDiretorio("/logs");
-```
-
-#### `bool removerDiretorioRecursivo(const char* caminho)`
-Apaga diretório e todo o conteúdo interno.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-cartao_local.removerDiretorioRecursivo("/cache");
-```
-
-#### `bool removerArquivo(const char* caminho)`
-Exclui um arquivo simples.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-cartao_local.removerArquivo("/dados_antigos.bin");
-```
-
-#### `ArquivoSd abrir(const char* caminho, int modo)`
-Abre arquivos ou diretórios usando as flags `MODO_*`.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-ArquivoSd configuracao = cartao_local.abrir("/config.txt", MODO_LEITURA);
-```
-
-#### `bool renomear(const char* caminho_original, const char* caminho_destino)`
-Renomeia arquivos ou move para outro diretório dentro do mesmo volume.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-cartao_local.renomear("/config.txt", "/config_antiga.txt");
-```
-
-#### `bool obterInformacoes(const char* caminho, InformacoesEntradaFat &destino)`
-Consulta metadados de uma entrada conhecida.
-
-```cpp
-InformacoesEntradaFat dados_config{};
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-cartao_local.obterInformacoes("/config.txt", dados_config);
-```
-
-#### `bool alterarAtributos(const char* caminho, uint8_t atributos, uint8_t mascara)`
-Atualiza atributos FAT como somente leitura.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-cartao_local.alterarAtributos("/config.txt", AM_RDO, AM_RDO);
-```
-
-#### `bool alterarHorario(const char* caminho, const CarimboTempoFat &tempo)`
-Escreve um novo carimbo de data e hora no arquivo.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-CarimboTempoFat tempo{ .data = 0x7E4A, .hora = 0x7BC0 };
-cartao_local.alterarHorario("/config.txt", tempo);
-```
-
-#### `bool alterarDiretorioAtual(const char* caminho)`
-Define o diretório de trabalho corrente.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-cartao_local.alterarDiretorioAtual("/logs");
-```
-
-#### `bool obterDiretorioAtual(char* destino, size_t capacidade)`
-Retorna o caminho do diretório corrente.
-
-```cpp
-char atual[32];
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-cartao_local.obterDiretorioAtual(atual, sizeof(atual));
-```
-
-#### `bool obterEspacoLivre(const char* caminho, EstatisticaEspacoLivreFat &destino)`
-Consulta estatísticas de espaço do volume.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-EstatisticaEspacoLivreFat espaco{};
-cartao_local.obterEspacoLivre("/", espaco);
-```
-
-#### `bool obterRotulo(const char* caminho, char* destino_rotulo, size_t capacidade, uint32_t &numero_serie)`
-Obtém o rótulo e número de série do volume.
-
-```cpp
-char rotulo[12] = {0};
-uint32_t numero = 0;
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-cartao_local.obterRotulo("/", rotulo, sizeof(rotulo), numero);
-```
-
-#### `bool definirRotulo(const char* rotulo)`
-Define novo rótulo para a partição.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-cartao_local.definirRotulo("DADOS_SD");
-```
-
-#### `bool formatar(const char* caminho, const ParametrosFormatacaoFat &parametros, void* area_trabalho, size_t tamanho_area)`
-Executa formatação completa do volume.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-ParametrosFormatacaoFat parametros{};
-parametros.formato = FM_FAT32;
-parametros.quantidade_fats = 1u;
-parametros.tamanho_cluster_bytes = 32u * 1024u;
-BYTE area_trabalho[FF_MAX_SS * 4] = {0};
-cartao_local.formatar("0:", parametros, area_trabalho, sizeof(area_trabalho));
-```
-
-#### `bool criarParticoes(uint8_t unidade_fisica, const LBA_t tabela_particoes[], void* area_trabalho)`
-Cria partições seguindo tabela fornecida.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-LBA_t particoes[] = { 10000u, 0u };
-BYTE area_trabalho[FF_MAX_SS * 4] = {0};
-cartao_local.criarParticoes(0u, particoes, area_trabalho);
-```
-
-#### `bool definirPaginaCodigo(uint16_t codigo_pagina)`
-Seleciona página de código compatível.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-cartao_local.definirPaginaCodigo(850u);
-```
-
-#### `bool buscarPrimeiro(const char* caminho, const char* padrao, InformacoesEntradaFat &destino, ContextoBuscaFat &contexto)`
-Inicia busca por arquivos que atendam a um padrão.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-ContextoBuscaFat busca{};
-InformacoesEntradaFat primeiro{};
-cartao_local.buscarPrimeiro("/", "*.csv", primeiro, busca);
-```
-
-#### `bool buscarProximo(InformacoesEntradaFat &destino, ContextoBuscaFat &contexto)`
-Continua a busca iniciada em `buscarPrimeiro`.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-ContextoBuscaFat busca{};
-InformacoesEntradaFat item{};
-if (cartao_local.buscarPrimeiro("/", "*.csv", item, busca)) {
-    while (cartao_local.buscarProximo(item, busca)) {
-        printf("Outro arquivo CSV encontrado\r\n");
-    }
-}
-```
-
-#### `bool finalizarBusca(ContextoBuscaFat &contexto)`
-Finaliza busca liberando o contexto mantido.
-
-```cpp
-CartaoSD cartao_local(spi0, 16u, 19u, 18u, 17u);
-ContextoBuscaFat busca{};
-InformacoesEntradaFat item{};
-if (cartao_local.buscarPrimeiro("/", "*.csv", item, busca)) {
-    cartao_local.finalizarBusca(busca);
-}
-```
-
 ## Boas práticas
 
 - Prefira buffers estáticos e reutilizáveis para operações de leitura/escrita, evitando alocação dinâmica.
